@@ -3,28 +3,47 @@ package main
 import (
 	"fmt"
 	"math/cmplx"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/fogleman/gg"
 )
 
-var minX = -2.0
-var maxX = 1.0
+var centerX, centerY = 0.252, 0.0
 
-var minY = -1.5
-var maxY = 1.5
+var offset = 4.0
+
+var minX = centerX - offset
+var maxX = centerX + offset
+
+var minY = centerY - offset
+var maxY = centerY + offset
 
 const imageWidth = 1000
 const imageHeight = 1000
 
-var maxIterations = 255
+var maxIterations = 60
 
 var wg sync.WaitGroup
 
 var blob [imageWidth][imageHeight]uint8
 
 func main() {
+	for i := 0; i < 100; i++ {
+		render("pics/fractal" + strconv.Itoa(i) + ".png")
+
+		// zoom in
+		offset *= 0.90
+		minX = centerX - offset
+		maxX = centerX + offset
+		minY = centerY - offset
+		maxY = centerY + offset
+	}
+
+}
+
+func render(filename string) {
 	dc := gg.NewContext(imageWidth, imageHeight)
 
 	fmt.Println("Rendering started...")
@@ -68,13 +87,9 @@ func main() {
 		}
 	}
 
-	dc.SavePNG("fractal.png")
+	dc.SavePNG(filename)
 
 	fmt.Println("Image saved!")
-}
-
-func iteratePoint(point complex128, x, y int) {
-
 }
 
 // fc(z) = z^2 + c
