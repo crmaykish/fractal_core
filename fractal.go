@@ -5,18 +5,18 @@ import (
 	"time"
 
 	mb "github.com/crmaykish/fractals/mandelbrot"
-	"github.com/crmaykish/fractals/utils"
 	"github.com/fogleman/gg"
 )
 
-const imageWidth = 4000
-const imageHeight = 3200
-const center = complex(0, 0)
+const imageWidth = 1000
+const imageHeight = 1000
 
-// const center = complex(0.05837764683046145, -0.6561039334139365)
+// const center = complex(0, 0)
 
-var iterations = 1000
-var startingZoom = 0.4
+const center = complex(0.05837764683046145, -0.6561039334139365)
+
+var iterations = 200000
+var startingZoom = 0.3
 var framesToRender = 1
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 
 	for i := 0; i < framesToRender; i++ {
 		frameTimeStart := time.Now()
-		filename := fmt.Sprintf("assets/fractal%03d.png", i+1)
+		filename := fmt.Sprintf("assets/fractal%03d.png", i+101)
 
 		mb.Generate(m)
 
@@ -39,20 +39,20 @@ func main() {
 		fmt.Printf("Fr %d / %d | Z: %f | It: %d | Render time: ", i+1, framesToRender, mb.GetZoom(m), mb.GetMaxIterations(m))
 		fmt.Println(time.Since(frameTimeStart))
 
-		mb.ScaleZoom(m, 2.0)
+		mb.ScaleZoom(m, 1.2)
 
 		// Hacky solution to increasing iterations as we zoom
 		z := mb.GetZoom(m)
 		if z < 5000 {
 			mb.SetMaxIterations(m, mb.DefaultMaxIterations)
 		} else if z < 100000 {
-			mb.SetMaxIterations(m, 2000)
+			mb.SetMaxIterations(m, 2500)
 		} else if z < 1000000 {
 			mb.SetMaxIterations(m, 5000)
 		} else if z < 20000000 {
-			mb.SetMaxIterations(m, 20000)
+			mb.SetMaxIterations(m, 10000)
 		} else if z < 400000000 {
-			mb.SetMaxIterations(m, 50000)
+			mb.SetMaxIterations(m, 20000)
 		}
 	}
 
@@ -70,11 +70,11 @@ func renderImage(buffer [][]uint32, frame int, filename string) {
 			if iterations == 0 {
 				dc.SetRGB255(0, 0, 0)
 			} else {
-				v := int(iterations % 255)
+				v := int(iterations)
 
-				r := v
-				g := v
-				b := int(utils.MapFloats(float64(v), 0, 255, 0x50, 0xFF))
+				r := getColor(v)
+				g := getColor(v)
+				b := getColor(v)
 
 				dc.SetRGB255(r, g, b)
 			}
@@ -83,4 +83,19 @@ func renderImage(buffer [][]uint32, frame int, filename string) {
 	}
 
 	dc.SavePNG(filename)
+}
+
+func getColor(v int) int {
+
+	var color int
+
+	var temp = v % 511
+
+	if temp <= 255 {
+		color = temp
+	} else {
+		color = temp - 255
+	}
+
+	return color
 }

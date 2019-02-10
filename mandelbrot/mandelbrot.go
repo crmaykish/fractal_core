@@ -1,11 +1,14 @@
 package mandelbrot
 
 import (
+	"math"
 	"math/cmplx"
 	"sync"
 
 	"github.com/crmaykish/fractals/utils"
 )
+
+const mandelbrotEscapeRadius = 2.0
 
 const DefaultZoomLevel = 0.25
 const DefaultMaxIterations = 1000
@@ -54,7 +57,7 @@ func Generate(m *Mandelbrot) {
 			wg.Add(1)
 			go func(x, y int) {
 				// The number of iterations this point endured is returned and stored in the blob array
-				m.buffer[x][y] = iteratePoint(p, m.maxIterations)
+				m.buffer[x][y] = pointInSet(p, m.maxIterations)
 				wg.Done()
 			}(x, y)
 		}
@@ -103,16 +106,62 @@ func SetMaxIterations(m *Mandelbrot, i int) {
 	m.maxIterations = i
 }
 
-// fc(z) = z^2 + c
-func iteratePoint(val complex128, maxIterations int) uint32 {
+// Check if the given complex number is in the Mandelbrot set
+// If it is, return 0; if not, return the number of iterations
+// it took to diverge outside of the escape radius
+func pointInSet(val complex128, maxIterations int) uint32 {
+	// Split the complex number into real and imaginary parts
+	x := real(val)
+	y := imag(val)
+
+	// If the given point is in the main cardioid or the period 2 bulb,
+	// it's definitely in the set. No need to iterate on it.
+	// This is a huge optimization for points near the main cardioid
+	if pointInCardioid(x, y) || pointInPeriod2Bulb(x, y) {
+		return 0
+	}
+
+	// Keep track of the last two iterated points. If the current
+	// point has already been seen, it cannot diverge and must be
+	// in the set.
+	// TODO: Look into generalizing this instead of just keeping
+	// track of 2 points. See where the best tradeoff is
+	last0 := complex(0, 0)
+	last1 := complex(0, 0)
+
 	var curr complex128
 
+	// Iterate the given point through fc(z) = z^2 + c until it
+	// diverges outside of the set or the max iteration has been reached
 	for i := 1; i <= maxIterations; i++ {
+		// Put the current point through the equation
 		curr = cmplx.Pow(curr, 2) + val
 
-		if cmplx.Abs(curr) > 2.0 {
+		if curr == last0 || curr == last1 {
+			// If we've seen this point before, it must be in the set
+			return 0
+		}
+
+		if cmplx.Abs(curr) > mandelbrotEscapeRadius {
+			// Point diverged, return the number of iterations it took
 			return uint32(i)
 		}
+
+		// Update the last points before iterating again
+		last1 = last0
+		last0 = curr
 	}
+
+	// Point did not diverge, assume it's in the set
 	return 0
+}
+
+func pointInCardioid(a, b float64) bool {
+	p := math.Sqrt(math.Pow(a-(0.25), 2) + math.Pow(b, 2))
+	comp := p - 2*math.Pow(p, 2) + (0.25)
+	return a <= comp
+}
+
+func pointInPeriod2Bulb(a, b float64) bool {
+	return math.Pow(a+1, 2)+math.Pow(b, 2) <= float64(1)/float64(16)
 }
