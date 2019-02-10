@@ -8,10 +8,9 @@ import (
 	"github.com/crmaykish/fractals/utils"
 )
 
-const mandelbrotEscapeRadius = 2.0
-
 const DefaultZoomLevel = 0.25
 const DefaultMaxIterations = 1000
+const mandelbrotEscapeRadius = 2.0
 
 type Mandelbrot struct {
 	ImageWidth             int
@@ -45,15 +44,14 @@ func Generate(m *Mandelbrot) {
 
 	for x := 0; x < m.ImageWidth; x++ {
 		for y := 0; y < m.ImageHeight; y++ {
-			// TODO make this mapping better with complex
 			// Map this pixel to a complex number on the plane
-			var a = utils.MapFloats(float64(x), 0, float64(m.ImageWidth), m.minX, m.maxX)
-			var b = utils.MapFloats(float64(y), 0, float64(m.ImageHeight), m.minY, m.maxY)
+			var a = utils.MapIntToFloat(x, 0, m.ImageWidth, m.minX, m.maxX)
+			var b = utils.MapIntToFloat(y, 0, m.ImageHeight, m.minY, m.maxY)
 
 			// p is a complex number of the form a+bi
 			var p = complex(a, b)
 
-			// Iterate this point
+			// Check if this point is in the Mandelbrot set
 			wg.Add(1)
 			go func(x, y int) {
 				// The number of iterations this point endured is returned and stored in the blob array
@@ -129,6 +127,7 @@ func pointInSet(val complex128, maxIterations int) uint32 {
 	last0 := complex(0, 0)
 	last1 := complex(0, 0)
 
+	// Current value of the point under iteration
 	var curr complex128
 
 	// Iterate the given point through fc(z) = z^2 + c until it
@@ -142,7 +141,7 @@ func pointInSet(val complex128, maxIterations int) uint32 {
 			return 0
 		}
 
-		if cmplx.Abs(curr) > mandelbrotEscapeRadius {
+		if real(curr) > mandelbrotEscapeRadius || imag(curr) > mandelbrotEscapeRadius {
 			// Point diverged, return the number of iterations it took
 			return uint32(i)
 		}

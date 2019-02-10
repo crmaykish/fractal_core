@@ -12,11 +12,12 @@ const imageWidth = 1000
 const imageHeight = 1000
 
 // const center = complex(0, 0)
-
+// const center = complex(0.25, 0)
 const center = complex(0.05837764683046145, -0.6561039334139365)
 
-var iterations = 200000
-var startingZoom = 0.3
+var iterations = 20000
+var startingZoom = 85000.0
+var zoomScale = 1.2
 var framesToRender = 1
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 
 	for i := 0; i < framesToRender; i++ {
 		frameTimeStart := time.Now()
-		filename := fmt.Sprintf("assets/fractal%03d.png", i+101)
+		filename := fmt.Sprintf("assets/fractal%03d.png", i+1)
 
 		mb.Generate(m)
 
@@ -39,7 +40,7 @@ func main() {
 		fmt.Printf("Fr %d / %d | Z: %f | It: %d | Render time: ", i+1, framesToRender, mb.GetZoom(m), mb.GetMaxIterations(m))
 		fmt.Println(time.Since(frameTimeStart))
 
-		mb.ScaleZoom(m, 1.2)
+		mb.ScaleZoom(m, zoomScale)
 
 		// Hacky solution to increasing iterations as we zoom
 		z := mb.GetZoom(m)
@@ -70,11 +71,11 @@ func renderImage(buffer [][]uint32, frame int, filename string) {
 			if iterations == 0 {
 				dc.SetRGB255(0, 0, 0)
 			} else {
-				v := int(iterations)
+				v := int(iterations & 0xFF)
 
-				r := getColor(v)
-				g := getColor(v)
-				b := getColor(v)
+				r := getColor(255 - v)
+				g := getColor(255 - v)
+				b := getColor(255 - v)
 
 				dc.SetRGB255(r, g, b)
 			}
