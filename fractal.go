@@ -2,51 +2,71 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/cmplx"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/fogleman/gg"
 )
 
-var centerX, centerY = 0.252, 0.0
+// const imageWidth = 7680
+// const imageHeight = 4320
 
-var offset = 4.0
+const imageWidth = 6000
+const imageHeight = 3000
 
-var minX = centerX - offset
-var maxX = centerX + offset
+const centerX, centerY = 0.05837764683046145, -0.6561039334139365
+const framesToRender = 1
 
-var minY = centerY - offset
-var maxY = centerY + offset
+var zoomLevel = 0.25
+var maxIterations = 6000
 
-const imageWidth = 1000
-const imageHeight = 1000
+var minX float64
+var maxX float64
+var minY float64
+var maxY float64
 
-var maxIterations = 60
+var buffer [imageWidth][imageHeight]uint8
 
 var wg sync.WaitGroup
 
-var blob [imageWidth][imageHeight]uint8
-
 func main() {
-	for i := 0; i < 100; i++ {
-		render("pics/fractal" + strconv.Itoa(i) + ".png")
+	zoom(35000.0)
 
-		// zoom in
-		offset *= 0.90
-		minX = centerX - offset
-		maxX = centerX + offset
-		minY = centerY - offset
-		maxY = centerY + offset
+	totalTime := time.Now()
+
+	for i := 0; i < framesToRender; i++ {
+		filename := fmt.Sprintf("pics/fractal%03d.png", i)
+
+		render(i+1, filename)
+		zoom(1.1)
 	}
+
+	fmt.Print("Total render time: ")
+	fmt.Println(time.Since(totalTime))
 
 }
 
-func render(filename string) {
+func zoom(scale float64) {
+	zoomLevel *= scale
+
+	maxIterations += 40
+
+	offset := 1.0 / zoomLevel
+	minX = centerX - offset
+	maxX = centerX + offset
+
+	// Scale Y to account for non-square images
+	minY = centerY - ((offset) * float64(imageHeight) / imageWidth)
+	maxY = centerY + ((offset) * float64(imageHeight) / imageWidth)
+}
+
+func render(frame int, filename string) {
 	dc := gg.NewContext(imageWidth, imageHeight)
 
-	fmt.Println("Rendering started...")
+	fmt.Printf("Frame: %d/%d | Zoom: %f | Iterations: %d | Time: ", frame, framesToRender, zoomLevel, maxIterations)
+
 	start := time.Now()
 
 	for x := 0; x < imageWidth; x++ {
@@ -62,7 +82,7 @@ func render(filename string) {
 			wg.Add(1)
 			go func(x, y int) {
 				// The number of iterations this point endured is returned and stored in the blob array
-				blob[x][y] = uint8(iterate(p))
+				buffer[x][y] = uint8(iterate(p))
 				wg.Done()
 			}(x, y)
 		}
@@ -70,26 +90,28 @@ func render(filename string) {
 
 	wg.Wait()
 
-	fmt.Print("Rendering finished in: ")
-	fmt.Println(time.Since(start))
-
-	fmt.Println("Saving image...")
-
+	// Save the buffer to an image
 	for x := 0; x < imageWidth; x++ {
 		for y := 0; y < imageHeight; y++ {
-			its := blob[x][y]
+			its := buffer[x][y]
 			if its == 0 {
 				dc.SetRGB255(0, 0, 0)
 			} else {
-				dc.SetRGB255(int(255-its), int(255-its), int(255-its))
+				// Some hacky color smoothing
+				j := math.Pow(float64(its), 1.2)
+				v := int(j) & 0xFF
+
+				r, g, b := pixelColor(int(v))
+
+				dc.SetRGB255(int(r), int(g), int(b))
 			}
-			dc.SetPixel(x, imageHeight-y-1)
+			dc.SetPixel(x, y)
 		}
 	}
 
 	dc.SavePNG(filename)
 
-	fmt.Println("Image saved!")
+	fmt.Println(time.Since(start))
 }
 
 // fc(z) = z^2 + c
@@ -111,4 +133,37 @@ func mapTo(val, amin, amax, bmin, bmax float64) float64 {
 	var result = (val-amin)*R + bmin
 
 	return result
+}
+
+func colorChannelValue(age int, start, end uint8) uint8 {
+	var colorChannelValue uint8
+
+	if start < end {
+		// If channel increases with age
+		if age >= (int(end) - int(start)) {
+			colorChannelValue = end
+		} else {
+			colorChannelValue = start + uint8(age) // losing data by converting int to uint8, but the range checks should protect it
+		}
+	} else {
+		// If channel decreases with age
+		if age >= (int(start) - int(end)) {
+			colorChannelValue = end
+		} else {
+			colorChannelValue = start - uint8(age)
+		}
+	}
+
+	return colorChannelValue
+}
+
+func pixelColor(age int) (uint8, uint8, uint8) {
+	var r1, g1, b1 uint8 = 0x00, 0x00, 0x50
+	var r2, g2, b2 uint8 = 0xFF, 0xFF, 0xFF
+
+	var red = colorChannelValue(age, r1, r2)
+	var green = colorChannelValue(age, g1, g2)
+	var blue = colorChannelValue(age, b1, b2)
+
+	return red, green, blue
 }
