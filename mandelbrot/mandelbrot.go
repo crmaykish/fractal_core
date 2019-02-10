@@ -20,6 +20,7 @@ type Mandelbrot struct {
 	maxIterations          int
 	buffer                 [][]uint32
 	minX, minY, maxX, maxY float64
+	histogram              []uint32
 }
 
 func Create(width, height int, center complex128) *Mandelbrot {
@@ -35,6 +36,9 @@ func Create(width, height int, center complex128) *Mandelbrot {
 	for i := 0; i < width; i++ {
 		m.buffer[i] = make([]uint32, height)
 	}
+
+	// Create the histogram
+	m.histogram = make([]uint32, m.maxIterations)
 
 	return &m
 }
@@ -54,8 +58,19 @@ func Generate(m *Mandelbrot) {
 			// Check if this point is in the Mandelbrot set
 			wg.Add(1)
 			go func(x, y int) {
+				iterations := pointInSet(p, m.maxIterations)
+
 				// The number of iterations this point endured is returned and stored in the blob array
-				m.buffer[x][y] = pointInSet(p, m.maxIterations)
+				m.buffer[x][y] = iterations
+
+				// Increment the histogram with the iteration result
+				// TODO: this check shouldn't be needed. what's wrong?
+				// returning 1 + iterations? scale it back down
+				// this seems right - clean it up
+				if iterations != 0 {
+					m.histogram[iterations-1]++
+				}
+
 				wg.Done()
 			}(x, y)
 		}
@@ -102,6 +117,13 @@ func GetMaxIterations(m *Mandelbrot) int {
 
 func SetMaxIterations(m *Mandelbrot, i int) {
 	m.maxIterations = i
+
+	// remake the histogram
+	m.histogram = make([]uint32, m.maxIterations)
+}
+
+func GetHistogram(m *Mandelbrot) []uint32 {
+	return m.histogram
 }
 
 // Check if the given complex number is in the Mandelbrot set

@@ -15,10 +15,10 @@ const imageHeight = 1000
 // const center = complex(0.25, 0)
 const center = complex(0.05837764683046145, -0.6561039334139365)
 
-var iterations = 20000
-var startingZoom = 85000.0
+var iterations = 2000
+var startingZoom = 0.3
 var zoomScale = 1.2
-var framesToRender = 1
+var framesToRender = 100
 
 func main() {
 	renderTimeStart := time.Now()
@@ -35,7 +35,7 @@ func main() {
 
 		mb.Generate(m)
 
-		renderImage(mb.GetBuffer(m), i+1, filename)
+		renderImage(mb.GetBuffer(m), i+1, filename, m)
 
 		fmt.Printf("Fr %d / %d | Z: %f | It: %d | Render time: ", i+1, framesToRender, mb.GetZoom(m), mb.GetMaxIterations(m))
 		fmt.Println(time.Since(frameTimeStart))
@@ -61,8 +61,17 @@ func main() {
 	fmt.Println(time.Since(renderTimeStart))
 }
 
-func renderImage(buffer [][]uint32, frame int, filename string) {
+func renderImage(buffer [][]uint32, frame int, filename string, m *mb.Mandelbrot) {
 	dc := gg.NewContext(imageWidth, imageHeight)
+
+	// histogram setup crap - move this
+	histogram := mb.GetHistogram(m)
+	maxIterations := mb.GetMaxIterations(m)
+
+	var histTotal uint32
+	for i := 0; i < maxIterations; i++ {
+		histTotal += histogram[i]
+	}
 
 	// Save the buffer to an image
 	for x := 0; x < imageWidth; x++ {
@@ -71,13 +80,9 @@ func renderImage(buffer [][]uint32, frame int, filename string) {
 			if iterations == 0 {
 				dc.SetRGB255(0, 0, 0)
 			} else {
-				v := int(iterations & 0xFF)
+				v := getColor(iterations-1, histogram, histTotal)
 
-				r := getColor(255 - v)
-				g := getColor(255 - v)
-				b := getColor(255 - v)
-
-				dc.SetRGB255(r, g, b)
+				dc.SetRGB(v, v, v)
 			}
 			dc.SetPixel(x, y)
 		}
@@ -86,17 +91,12 @@ func renderImage(buffer [][]uint32, frame int, filename string) {
 	dc.SavePNG(filename)
 }
 
-func getColor(v int) int {
+func getColor(v uint32, histogram []uint32, histTotal uint32) float64 {
+	var hue float64
 
-	var color int
-
-	var temp = v % 511
-
-	if temp <= 255 {
-		color = temp
-	} else {
-		color = temp - 255
+	for i := 0; i <= int(v); i++ {
+		hue += float64(histogram[i]) / float64(histTotal)
 	}
 
-	return color
+	return hue
 }
