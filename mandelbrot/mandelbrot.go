@@ -61,14 +61,11 @@ func Generate(m *Mandelbrot) {
 				iterations := pointInSet(p, m.maxIterations)
 
 				// The number of iterations this point endured is returned and stored in the blob array
-				m.buffer[x][y] = iterations
+				m.buffer[x][y] = uint32(iterations)
 
 				// Increment the histogram with the iteration result
-				// TODO: this check shouldn't be needed. what's wrong?
-				// returning 1 + iterations? scale it back down
-				// this seems right - clean it up
-				if iterations != 0 {
-					m.histogram[iterations-1]++
+				if iterations != m.maxIterations {
+					m.histogram[iterations]++
 				}
 
 				wg.Done()
@@ -127,9 +124,9 @@ func GetHistogram(m *Mandelbrot) []uint32 {
 }
 
 // Check if the given complex number is in the Mandelbrot set
-// If it is, return 0; if not, return the number of iterations
+// If it is, return maxIterations; if not, return the number of iterations
 // it took to diverge outside of the escape radius
-func pointInSet(val complex128, maxIterations int) uint32 {
+func pointInSet(val complex128, maxIterations int) int {
 	// Split the complex number into real and imaginary parts
 	x := real(val)
 	y := imag(val)
@@ -138,7 +135,7 @@ func pointInSet(val complex128, maxIterations int) uint32 {
 	// it's definitely in the set. No need to iterate on it.
 	// This is a huge optimization for points near the main cardioid
 	if pointInCardioid(x, y) || pointInPeriod2Bulb(x, y) {
-		return 0
+		return maxIterations
 	}
 
 	// Keep track of the last two iterated points. If the current
@@ -154,18 +151,18 @@ func pointInSet(val complex128, maxIterations int) uint32 {
 
 	// Iterate the given point through fc(z) = z^2 + c until it
 	// diverges outside of the set or the max iteration has been reached
-	for i := 1; i <= maxIterations; i++ {
+	for i := 0; i < maxIterations; i++ {
 		// Put the current point through the equation
 		curr = cmplx.Pow(curr, 2) + val
 
 		if curr == last0 || curr == last1 {
 			// If we've seen this point before, it must be in the set
-			return 0
+			return maxIterations
 		}
 
 		if real(curr) > mandelbrotEscapeRadius || imag(curr) > mandelbrotEscapeRadius {
 			// Point diverged, return the number of iterations it took
-			return uint32(i)
+			return i
 		}
 
 		// Update the last points before iterating again
@@ -174,7 +171,7 @@ func pointInSet(val complex128, maxIterations int) uint32 {
 	}
 
 	// Point did not diverge, assume it's in the set
-	return 0
+	return maxIterations
 }
 
 func pointInCardioid(a, b float64) bool {
