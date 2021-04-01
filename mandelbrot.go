@@ -19,6 +19,7 @@ type Mandelbrot struct {
 	buffer                 [][]uint32
 	minX, minY, maxX, maxY float64
 	histogram              []uint32
+	hue                    [][]float64
 }
 
 func Create(width, height int, center complex128) *Mandelbrot {
@@ -35,13 +36,17 @@ func Create(width, height int, center complex128) *Mandelbrot {
 		m.buffer[i] = make([]uint32, height)
 	}
 
-	// Create the histogram
-	m.histogram = make([]uint32, m.maxIterations)
-
 	return &m
 }
 
 func Generate(m *Mandelbrot) {
+	m.histogram = make([]uint32, m.maxIterations)
+
+	m.hue = make([][]float64, m.ImageWidth)
+	for i := 0; i < m.ImageWidth; i++ {
+		m.hue[i] = make([]float64, m.ImageHeight)
+	}
+
 	var wg sync.WaitGroup
 
 	for x := 0; x < m.ImageWidth; x++ {
@@ -75,8 +80,20 @@ func Generate(m *Mandelbrot) {
 
 	var total uint32 = 0
 
+	// Generate the histogram
 	for i := 0; i < m.maxIterations; i++ {
 		total += m.histogram[i]
+	}
+
+	// Find a hue for each point in the array
+	for x := 0; x < m.ImageWidth; x++ {
+		for y := 0; y < m.ImageHeight; y++ {
+
+			var v = m.buffer[x][y]
+			for i := 0; i < int(v); i++ {
+				m.hue[x][y] += float64(m.histogram[i]) / float64(total)
+			}
+		}
 	}
 
 }
@@ -133,6 +150,10 @@ func GetHistogram(m *Mandelbrot) []uint32 {
 	return m.histogram
 }
 
+func GetHue(m *Mandelbrot) [][]float64 {
+	return m.hue
+}
+
 // Check if the given complex number is in the Mandelbrot set
 // If it is, return maxIterations; if not, return the number of iterations
 // it took to diverge outside of the escape radius
@@ -170,7 +191,7 @@ func pointInSet(val complex128, maxIterations int) int {
 			return maxIterations
 		}
 
-		if real(curr) > mandelbrotEscapeRadius || imag(curr) > mandelbrotEscapeRadius {
+		if cmplx.Abs(curr) > mandelbrotEscapeRadius {
 			// Point diverged, return the number of iterations it took
 			return i
 		}
