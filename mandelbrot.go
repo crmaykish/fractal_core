@@ -1,14 +1,12 @@
-package mandelbrot
+package fractal_core
 
 import (
 	"math"
 	"math/cmplx"
 	"sync"
-
-	"github.com/crmaykish/fractals/utils"
 )
 
-const DefaultZoomLevel = 0.25
+const DefaultZoomLevel = 0.5
 const DefaultMaxIterations = 1000
 const mandelbrotEscapeRadius = 2.0
 
@@ -49,8 +47,8 @@ func Generate(m *Mandelbrot) {
 	for x := 0; x < m.ImageWidth; x++ {
 		for y := 0; y < m.ImageHeight; y++ {
 			// Map this pixel to a complex number on the plane
-			var a = utils.MapIntToFloat(x, 0, m.ImageWidth, m.minX, m.maxX)
-			var b = utils.MapIntToFloat(y, 0, m.ImageHeight, m.minY, m.maxY)
+			var a = MapIntToFloat(x, 0, m.ImageWidth, m.minX, m.maxX)
+			var b = MapIntToFloat(y, 0, m.ImageHeight, m.minY, m.maxY)
 
 			// p is a complex number of the form a+bi
 			var p = complex(a, b)
@@ -74,6 +72,17 @@ func Generate(m *Mandelbrot) {
 	}
 
 	wg.Wait()
+
+	var total uint32 = 0
+
+	for i := 0; i < m.maxIterations; i++ {
+		total += m.histogram[i]
+	}
+
+}
+
+func SetCenter(m *Mandelbrot, center complex128) {
+	m.center = center
 }
 
 func SetZoom(m *Mandelbrot, z float64) {
@@ -96,8 +105,9 @@ func ScaleZoom(m *Mandelbrot, scale float64) {
 	SetZoom(m, m.zoomLevel*scale)
 }
 
-func GetString() {
-
+// Return x min, y min, x max, x max of the current view
+func GetBounds(m *Mandelbrot) (float64, float64, float64, float64) {
+	return m.minX, m.minY, m.maxX, m.maxY
 }
 
 func GetBuffer(m *Mandelbrot) [][]uint32 {
